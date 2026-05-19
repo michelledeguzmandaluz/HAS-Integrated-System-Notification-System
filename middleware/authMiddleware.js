@@ -41,6 +41,14 @@ export const authMiddleware = (req, res, next) => {
 
   } catch (error) {
     // Error handling will be added later
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token provided',
+        code: 'INVALID_TOKEN',
+        details: error.message,
+      });
+    }
   }
 };
 
