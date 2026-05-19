@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 // Auth middleware: verify JWT and attach decoded payload to `req.user`.
 export const authMiddleware = (req, res, next) => {
   try {
-    // Code will be added here step-by-step
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -24,7 +23,6 @@ export const authMiddleware = (req, res, next) => {
     }
 
     const token = parts[1];
-
     const jwtSecret = process.env.JWT_SECRET;
 
     if (!jwtSecret) {
@@ -40,7 +38,6 @@ export const authMiddleware = (req, res, next) => {
     return next();
 
   } catch (error) {
-    // Error handling will be added later
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({
         success: false,
@@ -56,8 +53,6 @@ export const authMiddleware = (req, res, next) => {
       code: 'AUTH_ERROR',
       details: error.message,
     });
-
-    
   }
 };
 
