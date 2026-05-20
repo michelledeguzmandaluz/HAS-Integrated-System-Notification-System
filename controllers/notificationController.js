@@ -180,8 +180,6 @@ export const processNotification = async (req, res) => {
     });
 };
 
-import NotificationLog from '../models/NotificationLog.js';
-
 export const getNotificationLogs = async (req, res) => {
     try {
         const { page = 1, limit = 10, status, recipientEmail } = req.query;
@@ -201,7 +199,10 @@ export const getNotificationLogs = async (req, res) => {
       if (role === 'patient') {
         query.recipientEmail = req.user.email;
       }
-      
+
+       if (role === 'doctor') {
+        query.senderEmail = req.user.email;
+      }
         }
     }
 }
