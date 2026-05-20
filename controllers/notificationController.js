@@ -122,4 +122,15 @@ export const processNotification = async (req, res) => {
         sendEmailError,
         senderEmail: req.user?.email || null
         });
+
+    if (emailSent) {
+    return res.status(200).json({
+        code: 'NOTIFICATION_SENT',
+        message: 'Notification successfully processed and sent.',
+        logId: savedLog._id,
+        senderSystem: savedLog.senderSystem,
+        recipientEmail: savedLog.recipientEmail,
+        sentAt: savedLog.createdAt
+    });
+    }
 }
