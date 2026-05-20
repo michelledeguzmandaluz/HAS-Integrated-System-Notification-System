@@ -111,4 +111,15 @@ export const processNotification = async (req, res) => {
         error
     );
     }
+
+    const savedLog = await NotificationLog.create({
+        senderSystem,
+        recipientEmail,
+        subject,
+        message,
+        status: emailSent ? 'Sent' : 'Failed',
+        emailSent,
+        sendEmailError,
+        senderEmail: req.user?.email || null
+        });
 }
