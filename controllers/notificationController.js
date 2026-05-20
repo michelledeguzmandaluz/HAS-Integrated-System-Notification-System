@@ -25,19 +25,20 @@
 import NotificationLog from '../models/NotificationLog.js';
 
 export const processNotification = async (req, res) => {
+  try {
     const {
-        senderSystem: providedSenderSystem,
-        recipientEmail,
-        subject,
-        message
-        } = req.body;
+      senderSystem: providedSenderSystem,
+      recipientEmail,
+      subject,
+      message
+    } = req.body;
 
     if (!recipientEmail || !subject || !message) {
-    return res.status(400).json({
-      code: 'MISSING_FIELDS',
-      message: 'Recipient email, subject, and message are required.'
-    });
-  }
+      return res.status(400).json({
+        code: 'MISSING_FIELDS',
+        message: 'Recipient email, subject, and message are required.'
+      });
+    }
 
     if (!isValidEmail(recipientEmail)) {
       return res.status(400).json({
@@ -55,15 +56,12 @@ export const processNotification = async (req, res) => {
         case 'doctor':
           senderSystem = 'Doctor Portal';
           break;
-
         case 'patient':
           senderSystem = 'Patient Portal';
           break;
-
         case 'admin':
           senderSystem = 'Admin System';
           break;
-
         default:
           senderSystem = `${req.user.role} System`;
       }
@@ -71,66 +69,98 @@ export const processNotification = async (req, res) => {
 
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-  const duplicateExists = await NotificationLog.findOne({
-    recipientEmail,
-    message,
-    status: { $in: ['Sent', 'Duplicate'] },
-    createdAt: { $gte: fiveMinutesAgo }
-  });
-
-  if (duplicateExists) {
-    await NotificationLog.create({
-      senderSystem,
+    const duplicateExists = await NotificationLog.findOne({
       recipientEmail,
-      subject,
       message,
-      status: 'Duplicate',
-      emailSent: false,
-      errorMessage: 'Duplicate notification detected within 5 minutes.',
-      senderEmail: req.user?.email || null
+      status: { $in: ['Sent', 'Duplicate'] },
+      createdAt: { $gte: fiveMinutesAgo }
     });
 
-    return res.status(409).json({
-      code: 'DUPLICATE_NOTIFICATION',
-      message: 'A similar notification was already sent within the last 5 minutes.'
-    });
-  }
+    if (duplicateExists) {
+      const dupLog = await NotificationLog.create({
+        senderSystem,
+        recipientEmail,
+        subject,
+        message,
+        status: 'Duplicate',
+        emailSent: false,
+        errorMessage: 'Duplicate notification detected within 5 minutes.',
+        senderEmail: req.user?.email || null
+      });
+
+      return res.status(409).json({
+        code: 'DUPLICATE_NOTIFICATION',
+        message: 'A similar notification was already sent within the last 5 minutes.',
+        logId: dupLog._id
+      });
+    }
 
     let emailSent = false;
     let sendEmailError = null;
 
     try {
-    await sendEmail(recipientEmail, subject, message);
-    emailSent = true;
+      await sendEmail(recipientEmail, subject, message);
+      emailSent = true;
     } catch (error) {
-    emailSent = false;
-    sendEmailError = error.message;
+      emailSent = false;
+      sendEmailError = error.message;
 
-    console.error(
-        `Failed to send email to ${recipientEmail}:`,
-        error
-    );
+      console.error(`Failed to send email:`, error);
     }
 
     const savedLog = await NotificationLog.create({
-        senderSystem,
-        recipientEmail,
-        subject,
-        message,
-        status: emailSent ? 'Sent' : 'Failed',
-        emailSent,
-        sendEmailError,
-        senderEmail: req.user?.email || null
-        });
+      senderSystem,
+      recipientEmail,
+      subject,
+      message,
+      status: emailSent ? 'Sent' : 'Failed',
+      emailSent,
+      sendEmailError,
+      senderEmail: req.user?.email || null
+    });
 
     if (emailSent) {
-    return res.status(200).json({
+      return res.status(200).json({
         code: 'NOTIFICATION_SENT',
         message: 'Notification successfully processed and sent.',
         logId: savedLog._id,
         senderSystem: savedLog.senderSystem,
         recipientEmail: savedLog.recipientEmail,
         sentAt: savedLog.createdAt
-    });
+      });
     }
-}
+
+    return res.status(500).json({
+      code: 'EMAIL_SEND_FAILED',
+      message: 'Notification processed but email sending failed.',
+      logId: savedLog._id,
+      error: sendEmailError
+    });
+
+  } catch (error) {
+    console.error('Unexpected error:', error);
+
+    
+    const errorLog = await NotificationLog.create({
+      senderSystem:
+        req.body?.senderSystem ||
+        (req.user?.role ? `${req.user.role} System` : 'Unknown System'),
+
+      recipientEmail: req.body?.recipientEmail || 'unknown_recipient',
+      subject: req.body?.subject || 'unknown_subject',
+      message: req.body?.message || 'unknown_message',
+
+      status: 'Failed',
+      emailSent: false,
+      errorMessage: error.message,
+      senderEmail: req.user?.email || null
+    });
+
+    return res.status(500).json({
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected internal server error occurred.',
+      logId: errorLog._id,
+      error: error.message
+    });
+  }
+};
