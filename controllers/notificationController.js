@@ -45,7 +45,7 @@ export const processNotification = async (req, res) => {
         message: 'Invalid email format for recipientEmail.'
       });
     }
-    
+
     let senderSystem = 'Unknown System';
 
     if (providedSenderSystem) {
@@ -68,4 +68,31 @@ export const processNotification = async (req, res) => {
           senderSystem = `${req.user.role} System`;
       }
     }
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+  const duplicateExists = await NotificationLog.findOne({
+    recipientEmail,
+    message,
+    status: { $in: ['Sent', 'Duplicate'] },
+    createdAt: { $gte: fiveMinutesAgo }
+  });
+
+  if (duplicateExists) {
+    await NotificationLog.create({
+      senderSystem,
+      recipientEmail,
+      subject,
+      message,
+      status: 'Duplicate',
+      emailSent: false,
+      errorMessage: 'Duplicate notification detected within 5 minutes.',
+      senderEmail: req.user?.email || null
+    });
+
+    return res.status(409).json({
+      code: 'DUPLICATE_NOTIFICATION',
+      message: 'A similar notification was already sent within the last 5 minutes.'
+    });
+  }
 }
