@@ -210,6 +210,16 @@ export const getNotificationLogs = async (req, res) => {
           query.recipientEmail = recipientEmail;
         }
     }
+     if (status) {
+      query.status = status;
+    }
+
+    const logs = await NotificationLog.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parsedLimit)
+      .skip(skip);
+
+    const totalCount = await NotificationLog.countDocuments(query);
 }
 
 
