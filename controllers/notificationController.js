@@ -38,4 +38,27 @@ export const processNotification = async (req, res) => {
       message: 'Recipient email, subject, and message are required.'
     });
   }
+
+    let senderSystem = 'Unknown System';
+
+    if (providedSenderSystem) {
+      senderSystem = providedSenderSystem;
+    } else if (req.user?.role) {
+      switch (req.user.role.toLowerCase()) {
+        case 'doctor':
+          senderSystem = 'Doctor Portal';
+          break;
+
+        case 'patient':
+          senderSystem = 'Patient Portal';
+          break;
+
+        case 'admin':
+          senderSystem = 'Admin System';
+          break;
+
+        default:
+          senderSystem = `${req.user.role} System`;
+      }
+    }
 }
